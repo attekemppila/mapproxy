@@ -14,6 +14,8 @@
 # limitations under the License.
 
 import os
+from math import log10, ceil, floor
+
 from mapproxy.compat import string_type
 from mapproxy.util.fs import ensure_directory
 
@@ -31,23 +33,25 @@ def location_funcs(layout):
         return tile_location_quadkey, no_level_location
     elif layout == 'arcgis':
         return tile_location_arcgiscache, level_location_arcgiscache
+    elif layout == 'geowebcache':
+        return tile_location_geowebcache, level_location
     else:
         raise ValueError('unknown directory_layout "%s"' % layout)
 
-def level_location(level, cache_dir):
+def level_location(level, cache_dir, level_prefix=''):
     """
     Return the path where all tiles for `level` will be stored.
 
     >>> level_location(2, '/tmp/cache')
     '/tmp/cache/02'
+    >>> level_location(2, '/tmp/cache', 'prefix_')
+    '/tmp/cache/prefix_02'
     """
-    if isinstance(level, string_type):
-        return os.path.join(cache_dir, level)
-    else:
-        return os.path.join(cache_dir, "%02d" % level)
+    
+    return os.path.join(cache_dir, level_part(level, level_prefix))
 
 
-def level_part(level):
+def level_part(level, level_prefix=''):
     """
     Return the path where all tiles for `level` will be stored.
 
@@ -55,14 +59,17 @@ def level_part(level):
     '02'
     >>> level_part('2')
     '2'
+    >>> level_part('2', level_prefix='prefix_')
+    'prefix_2'
     """
+    
     if isinstance(level, string_type):
-        return level
+        return level_prefix + level
     else:
-        return "%02d" % level
+        return "%s%02d" % (level_prefix, level)
 
 
-def tile_location_tc(tile, cache_dir, file_ext, create_dir=False):
+def tile_location_tc(tile, cache_dir, level_prefix, file_ext, create_dir=False):
     """
     Return the location of the `tile`. Caches the result as ``location``
     property of the `tile`.
@@ -78,7 +85,7 @@ def tile_location_tc(tile, cache_dir, file_ext, create_dir=False):
     if tile.location is None:
         x, y, z = tile.coord
         parts = (cache_dir,
-                level_part(z),
+                level_part(z, level_prefix),
                  "%03d" % int(x / 1000000),
                  "%03d" % (int(x / 1000) % 1000),
                  "%03d" % (int(x) % 1000),
@@ -90,7 +97,7 @@ def tile_location_tc(tile, cache_dir, file_ext, create_dir=False):
         ensure_directory(tile.location)
     return tile.location
 
-def tile_location_mp(tile, cache_dir, file_ext, create_dir=False):
+def tile_location_mp(tile, cache_dir, level_prefix, file_ext, create_dir=False):
     """
     Return the location of the `tile`. Caches the result as ``location``
     property of the `tile`.
@@ -108,7 +115,7 @@ def tile_location_mp(tile, cache_dir, file_ext, create_dir=False):
     if tile.location is None:
         x, y, z = tile.coord
         parts = (cache_dir,
-                level_part(z),
+                level_part(z, level_prefix),
                  "%04d" % int(x / 10000),
                  "%04d" % (int(x) % 10000),
                  "%04d" % int(y / 10000),
@@ -118,7 +125,7 @@ def tile_location_mp(tile, cache_dir, file_ext, create_dir=False):
         ensure_directory(tile.location)
     return tile.location
 
-def tile_location_tms(tile, cache_dir, file_ext, create_dir=False):
+def tile_location_tms(tile, cache_dir, level_prefix, file_ext, create_dir=False):
     """
     Return the location of the `tile`. Caches the result as ``location``
     property of the `tile`.
@@ -134,14 +141,14 @@ def tile_location_tms(tile, cache_dir, file_ext, create_dir=False):
     if tile.location is None:
         x, y, z = tile.coord
         tile.location = os.path.join(
-            cache_dir, level_part(str(z)),
+            cache_dir, level_part(str(z), level_prefix),
             str(x), str(y) + '.' + file_ext
         )
     if create_dir:
         ensure_directory(tile.location)
     return tile.location
 
-def tile_location_reverse_tms(tile, cache_dir, file_ext, create_dir=False):
+def tile_location_reverse_tms(tile, cache_dir, level_prefix, file_ext, create_dir=False):
     """
     Return the location of the `tile`. Caches the result as ``location``
     property of the `tile`.
@@ -163,10 +170,10 @@ def tile_location_reverse_tms(tile, cache_dir, file_ext, create_dir=False):
         ensure_directory(tile.location)
     return tile.location
 
-def level_location_tms(level, cache_dir):
-    return level_location(str(level), cache_dir=cache_dir)
+def level_location_tms(level, cache_dir, level_prefix):
+    return level_location(str(level), cache_dir=cache_dir, level_prefix=level_prefix)
 
-def tile_location_quadkey(tile, cache_dir, file_ext, create_dir=False):
+def tile_location_quadkey(tile, cache_dir, level_prefix, file_ext, create_dir=False):
     """
     Return the location of the `tile`. Caches the result as ``location``
     property of the `tile`.
@@ -197,11 +204,11 @@ def tile_location_quadkey(tile, cache_dir, file_ext, create_dir=False):
         ensure_directory(tile.location)
     return tile.location
 
-def no_level_location(level, cache_dir):
+def no_level_location(level, cache_dir, level_prefix):
     # dummy for quadkey cache which stores all tiles in one directory
     raise NotImplementedError('cache does not have any level location')
 
-def tile_location_arcgiscache(tile, cache_dir, file_ext, create_dir=False):
+def tile_location_arcgiscache(tile, cache_dir, level_prefix, file_ext, create_dir=False):
     """
     Return the location of the `tile`. Caches the result as ``location``
     property of the `tile`.
@@ -222,5 +229,57 @@ def tile_location_arcgiscache(tile, cache_dir, file_ext, create_dir=False):
         ensure_directory(tile.location)
     return tile.location
 
-def level_location_arcgiscache(z, cache_dir):
-    return level_location('L%02d' % z, cache_dir=cache_dir)
+def level_location_arcgiscache(z, cache_dir, level_prefix):
+    return level_location('L%02d' % z, cache_dir=cache_dir, level_prefix=level_prefix)
+
+def _gwczeropadder(number, order):
+    ''' Ported from org.geowebcache.storage.blobstore.file.FilePathUtils.java
+    https://github.com/GeoWebCache/geowebcache/blob/master/geowebcache/core/src/main/java/org/geowebcache/storage/blobstore/file/FilePathUtils.java '''
+
+    if number <= 9:
+        numorder = 1
+    elif 10 <= number <= 11:
+        numorder = 2
+    elif number > 11:
+        numorder = int(ceil(log10(number) - 0.001))
+
+    padwidth = order - numorder
+
+    return padwidth * '0' + str(number)
+
+def tile_location_geowebcache(tile, cache_dir, level_prefix, file_ext, create_dir=False):
+    """
+    Return the location of the `tile`. Caches the result as ``location``
+    property of the `tile`.
+
+    :param tile: the tile object
+    :param create_dir: if True, create all necessary directories
+    :return: the full filename of the tile
+
+    >>> from mapproxy.cache.tile import Tile
+    >>> tile_location_geowebcache(Tile((1234567, 87654321, 9)), '/tmp/cache', 'png').replace('\\\\', '/')
+    '/tmp/cache/02/000/000/003/000/000/004.png'
+    """
+    # TODO: fix tile path in docstring
+    
+    if tile.location is None:
+        x, y, z = tile.coord
+        
+        shift = floor(z / 2)
+        half = 2 * (2**shift)
+        digits = 1
+        
+        if half > 10:
+            digits = int(log10(half)) + 1
+        halfx = floor(x / half)
+        halfy = floor(y / half)
+    
+        z_folder = level_location(z, cache_dir=cache_dir, level_prefix=level_prefix)
+        cell_folder = _gwczeropadder(halfx, digits)+'_'+_gwczeropadder(halfy, digits)
+        filename = _gwczeropadder(x, 2*digits)+'_'+_gwczeropadder(y, 2*digits)+'.'+file_ext
+        tile.location = os.path.join(z_folder, cell_folder, filename)
+
+    if create_dir:
+        ensure_directory(tile.location)
+    return tile.location
+

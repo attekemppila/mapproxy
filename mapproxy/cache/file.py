@@ -30,8 +30,8 @@ class FileCache(TileCacheBase):
     """
     This class is responsible to store and load the actual tile data.
     """
-    def __init__(self, cache_dir, file_ext, directory_layout='tc',
-                 link_single_color_images=False):
+    def __init__(self, cache_dir, file_ext, directory_layout='tc', 
+                 level_prefix=None, link_single_color_images=False):
         """
         :param cache_dir: the path where the tile will be stored
         :param file_ext: the file extension that will be appended to
@@ -40,6 +40,7 @@ class FileCache(TileCacheBase):
         super(FileCache, self).__init__()
         self.lock_cache_id = hashlib.md5(cache_dir.encode('utf-8')).hexdigest()
         self.cache_dir = cache_dir
+        self.level_prefix = level_prefix if level_prefix else ''
         self.file_ext = file_ext
         self.link_single_color_images = link_single_color_images
         self._tile_location, self._level_location = path.location_funcs(layout=directory_layout)
@@ -47,7 +48,7 @@ class FileCache(TileCacheBase):
             self.level_location = None # disable level based clean-ups
 
     def tile_location(self, tile, create_dir=False):
-        return self._tile_location(tile, self.cache_dir, self.file_ext, create_dir=create_dir)
+        return self._tile_location(tile, self.cache_dir, self.level_prefix, self.file_ext, create_dir=create_dir)
 
     def level_location(self, level):
         """
@@ -57,7 +58,7 @@ class FileCache(TileCacheBase):
         >>> c.level_location(2)
         '/tmp/cache/02'
         """
-        return self._level_location(level, self.cache_dir)
+        return self._level_location(level, self.cache_dir, self.level_prefix)
 
     def _single_color_tile_location(self, color, create_dir=False):
         """

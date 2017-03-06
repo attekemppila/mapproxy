@@ -1013,6 +1013,13 @@ class CacheConfiguration(ConfigurationBase):
         else:
             suffix = grid_conf.conf['srs'].replace(':', '')
             cache_dir = os.path.join(cache_dir, self.conf['name'] + '_' + suffix)
+        
+        level_prefix = self.conf.get('cache', {}).get('level_prefix', None)
+        if directory_layout == 'geowebcache':
+            if level_prefix is None:
+                level_prefix = '%s_' % grid_conf.tile_grid().name
+            level_prefix = level_prefix.replace(':', '_')
+        
         link_single_color_images = self.context.globals.get_value('link_single_color_images', self.conf,
             global_key='cache.link_single_color_images')
 
@@ -1024,6 +1031,7 @@ class CacheConfiguration(ConfigurationBase):
             cache_dir,
             file_ext=file_ext,
             directory_layout=directory_layout,
+            level_prefix=level_prefix,
             link_single_color_images=link_single_color_images,
         )
 
