@@ -109,6 +109,7 @@ cache_types = {
         'use_grid_names': bool(),
         'directory': str(),
         'tile_lock_dir': str(),
+        'level_prefix': str(),
     },
     'sqlite': {
         'directory': str(),

@@ -103,7 +103,7 @@ def serve_develop_command(args):
         except ImportError:
             pass
 
-    run_simple(host, port, app, use_reloader=True, processes=1,
+    run_simple(host, port, app, use_reloader=False, processes=1,
         threaded=True, passthrough_errors=True,
         extra_files=extra_files)
 
